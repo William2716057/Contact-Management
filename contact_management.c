@@ -64,7 +64,6 @@ void searchContact() {
     printf("\n--- Search Results ---\n");
    
     for (int i = 0; i < contactCount; i++) {
-        // Search in name, phone, and email
         if (strstr(contacts[i].name, searchTerm) != NULL ||
             strstr(contacts[i].phone, searchTerm) != NULL ||
             strstr(contacts[i].email, searchTerm) != NULL) {
@@ -100,7 +99,6 @@ void deleteContact() {
     }
    
     if (found >= 0) {
-        // Shift all contacts after the found index
         for (int i = found; i < contactCount - 1; i++) {
             contacts[i] = contacts[i + 1];
         }
@@ -111,53 +109,107 @@ void deleteContact() {
     }
 }
 
-void saveToFile() {
-    FILE *file = fopen("contacts.txt", "w");
+// ============ JSON FUNCTIONS ============
+
+void saveToJSON() {
+    FILE *file = fopen("contacts.json", "w");
     if (file == NULL) {
         printf("Error opening file for writing!\n");
         return;
     }
    
-    fprintf(file, "%d\n", contactCount);
+    fprintf(file, "{\n");
+    fprintf(file, "  \"contacts\": [\n");
+   
     for (int i = 0; i < contactCount; i++) {
-        fprintf(file, "%s\n%s\n%s\n",
-                contacts[i].name,
-                contacts[i].phone,
-                contacts[i].email);
+        fprintf(file, "    {\n");
+        fprintf(file, "      \"name\": \"%s\",\n", contacts[i].name);
+        fprintf(file, "      \"phone\": \"%s\",\n", contacts[i].phone);
+        fprintf(file, "      \"email\": \"%s\"\n", contacts[i].email);
+       
+        if (i < contactCount - 1) {
+            fprintf(file, "    },\n");
+        } else {
+            fprintf(file, "    }\n");
+        }
     }
    
+    fprintf(file, "  ]\n");
+    fprintf(file, "}\n");
+   
     fclose(file);
-    printf("Contacts saved to 'contacts.txt'.\n");
+    printf("Contacts saved to 'contacts.json' in JSON format.\n");
 }
 
-void loadFromFile() {
-    FILE *file = fopen("contacts.txt", "r");
+void loadFromJSON() {
+    FILE *file = fopen("contacts.json", "r");
     if (file == NULL) {
         printf("No existing contacts file found. Starting fresh.\n");
         return;
     }
    
-    fscanf(file, "%d\n", &contactCount);
-    for (int i = 0; i < contactCount; i++) {
-        fgets(contacts[i].name, MAX_NAME, file);
-        contacts[i].name[strcspn(contacts[i].name, "\n")] = 0; // Remove newline
+    char line[256];
+    contactCount = 0;
+   
+    while (fgets(line, sizeof(line), file) && contactCount < MAX_CONTACTS) {
+        if (strstr(line, "\"name\"")) {
+            char *start = strchr(line, ':') + 1;
+            while (*start == ' ' || *start == '\"') start++;
+            char *end = strchr(start, '\"');
+            if (end) {
+                *end = '\0';
+                strcpy(contacts[contactCount].name, start);
+            }
+        }
        
-        fgets(contacts[i].phone, MAX_PHONE, file);
-        contacts[i].phone[strcspn(contacts[i].phone, "\n")] = 0;
+        if (strstr(line, "\"phone\"")) {
+            char *start = strchr(line, ':') + 1;
+            while (*start == ' ' || *start == '\"') start++;
+            char *end = strchr(start, '\"');
+            if (end) {
+                *end = '\0';
+                strcpy(contacts[contactCount].phone, start);
+            }
+        }
        
-        fgets(contacts[i].email, MAX_EMAIL, file);
-        contacts[i].email[strcspn(contacts[i].email, "\n")] = 0;
+        if (strstr(line, "\"email\"")) {
+            char *start = strchr(line, ':') + 1;
+            while (*start == ' ' || *start == '\"') start++;
+            char *end = strchr(start, '\"');
+            if (end) {
+                *end = '\0';
+                strcpy(contacts[contactCount].email, start);
+                contactCount++;
+            }
+        }
     }
    
     fclose(file);
-    printf("Loaded %d contacts from file.\n", contactCount);
+    printf("Loaded %d contacts from JSON file.\n", contactCount);
+}
+
+// ============ VIEW RAW JSON ============
+
+void viewJSON() {
+    FILE *file = fopen("contacts.json", "r");
+    if (file == NULL) {
+        printf("No JSON file found.\n");
+        return;
+    }
+   
+    printf("\n--- Raw JSON Content ---\n");
+    char ch;
+    while ((ch = fgetc(file)) != EOF) {
+        putchar(ch);
+    }
+   
+    fclose(file);
 }
 
 int main() {
     int choice;
    
-    // Load existing contacts at startup
-    loadFromFile();
+    loadFromJSON();
    
     do {
         printf("\n=== CONTACT MANAGEMENT SYSTEM ===\n");
@@ -165,12 +217,10 @@ int main() {
         printf("2. View All Contacts\n");
         printf("3. Search Contact\n");
         printf("4. Delete Contact\n");
-        printf("5. Save to File\n");
-        printf("6. Exit\n");
-        printf("Enter choice (1-6): ");
+        printf("5. Exit\n");
+        printf("Enter choice (1-7): ");
        
         if (scanf("%d", &choice) != 1) {
-            // Clear input buffer if invalid input
             while (getchar() != '\n');
             printf("Invalid input! Please enter a number.\n");
             continue;
@@ -190,17 +240,14 @@ int main() {
                 deleteContact();
                 break;
             case 5:
-                saveToFile();
-                break;
-            case 6:
                 printf("\nSaving contacts before exit...\n");
-                saveToFile();
-                printf("Goodbye!\n");
+                saveToJSON();
+                printf("Program ended!\n");
                 break;
             default:
-                printf("Invalid choice! Please enter 1-6.\n");
+                printf("Invalid choice! Please enter 1-5.\n");
         }
-    } while (choice != 6);
+    } while (choice != 5);
    
     return 0;
 }
